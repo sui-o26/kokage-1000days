@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>▷◀紡木こかげちゃんのデビュー１０００日をお祝いしよう▷◀</title>
+  <!-- 丸文字フォント（M PLUS Rounded 1c）の読み込み -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 28px 16px 48px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      color: #1e4e68;
+      /* 水色のポップな水玉背景 */
+      background-color: #e6f7ff;
+      background-image: radial-gradient(#bae6fd 2.5px, transparent 2.5px);
+      background-size: 24px 24px;
+    }
+
+    /* タイトル */
+    h1 {
+      margin: 0;
+      padding: 14px 28px;
+      font-size: clamp(18px, 4vw, 26px);
+      font-weight: 800;
+      text-align: center;
+      color: #0284c7;
+      background: #ffffff;
+      border: 4px solid #38bdf8;
+      border-radius: 999px;
+      box-shadow: 0 5px 0 #7dd3fc;
+      letter-spacing: 0.03em;
+    }
+
+    /* ルール枠 */
+    .rules-box {
+      width: 100%;
+      max-width: 640px;
+      background: #ffffff;
+      border: 3px dashed #38bdf8;
+      border-radius: 20px;
+      padding: 18px 22px;
+      box-shadow: 0 6px 16px rgba(56, 189, 248, 0.18);
+    }
+
+    .rules-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 14.5px;
+      line-height: 1.65;
+      font-weight: 700;
+    }
+
+    .rules-list li {
+      padding-left: 1.8em;
+      text-indent: -1.8em;
+    }
+
+    .rules-list .example {
+      display: block;
+      text-indent: 0;
+      margin-top: 2px;
+      font-size: 13px;
+      font-weight: 400;
+      color: #0369a1;
+      background: #f0f9ff;
+      padding: 4px 10px;
+      border-radius: 8px;
+    }
+
+    /* 操作パネル */
+    .controls {
+      width: 100%;
+      max-width: 640px;
+      background: #ffffff;
+      border: 3px solid #7dd3fc;
+      border-radius: 20px;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 0 #bae6fd;
+    }
+
+    .slider-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0369a1;
+      background: #f0f9ff;
+      padding: 6px 12px;
+      border-radius: 999px;
+    }
+
+    input[type="range"] {
+      accent-color: #0ea5e9;
+      cursor: pointer;
+    }
+
+    button {
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 2px solid #38bdf8;
+      border-radius: 999px;
+      background: #f0f9ff;
+      color: #0284c7;
+      box-shadow: 0 3px 0 #bae6fd;
+      transition: transform 0.1s, background 0.15s;
+    }
+
+    button:hover:not(:disabled) {
+      background: #e0f2fe;
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #bae6fd;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* 選択中のツール（ペン／消しゴム） */
+    button.active {
+      background: #38bdf8;
+      color: #ffffff;
+      border-color: #0284c7;
+      box-shadow: 0 3px 0 #0284c7;
+    }
+
+    /* 保存ボタン */
+    button.save {
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
+      color: #ffffff;
+      border-color: #0369a1;
+      box-shadow: 0 3px 0 #0369a1;
+      padding: 8px 22px;
+    }
+
+    button.save:hover {
+      filter: brightness(1.06);
+    }
+
+    /* キャンバスエリア */
+    .canvas-wrapper {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      background-color: #ffffff;
+      border: 4px solid #38bdf8;
+      border-radius: 20px;
+      box-shadow: 0 8px 0 #7dd3fc;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .hint {
+      font-size: 12.5px;
+      color: #0369a1;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>▷◀紡木こかげちゃんのデビュー１０００日をお祝いしよう▷◀</h1>
+
+  <div class="rules-box">
+    <ul class="rules-list">
+      <li>
+        ▷◀１０００日お祝いメッセージをご記入いただけると嬉しいです！
+        <span class="example">（例：デビューから１０００日おめでとうございます！これからも応援しています！）</span>
+      </li>
+      <li>▷◀文字数制限はありませんが１～５行程度でお願いします。</li>
+      <li>▷◀お名前の記載は任意です。（未記入の場合はお名前なしで掲載いたします）</li>
+      <li>▷◀集まったメッセージは編集してSNS等に掲載する予定ですので、あらかじめご了承ください。</li>
+      <li>▷◀見た人が嫌な気持ちになってしまうような表現はお控えください。</li>
+    </ul>
+  </div>
+
+  <div class="controls">
+    <button id="penBtn" class="active" type="button">✏️ ペン</button>
+    <button id="eraserBtn" type="button">🧽 消しゴム</button>
+
+    <label class="slider-label">
+      太さ:
+      <input type="range" id="lineWidth" min="2" max="40" value="7" />
+    </label>
+
+    <button id="undoBtn" type="button" disabled>↩️ 巻き戻し</button>
+    <button id="clearBtn" type="button">🗑️ クリア</button>
+    <button id="saveBtn" class="save" type="button">💾 保存</button>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="drawCanvas" width="640" height="340"></canvas>
+    <p class="hint">※白い枠内に描いたメッセージは、背景が透明なPNG画像として保存されます</p>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("drawCanvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    const penBtn = document.getElementById("penBtn");
+    const eraserBtn = document.getElementById("eraserBtn");
+    const lineWidthInput = document.getElementById("lineWidth");
+    const undoBtn = document.getElementById("undoBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const saveBtn = document.getElementById("saveBtn");
+
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#1e293b";
+
+    let isDrawing = false;
+    let mode = "pen";
+    const history = [];
+    const MAX_HISTORY = 30;
+
+    function saveHistory() {
+      if (history.length >= MAX_HISTORY) {
+        history.shift();
+      }
+      history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      updateUndoButton();
+    }
+
+    function updateUndoButton() {
+      undoBtn.disabled = history.length === 0;
+    }
+
+    function setMode(newMode) {
+      mode = newMode;
+      penBtn.classList.toggle("active", mode === "pen");
+      eraserBtn.classList.toggle("active", mode === "eraser");
+    }
+
+    penBtn.addEventListener("click", () => setMode("pen"));
+    eraserBtn.addEventListener("click", () => setMode("eraser"));
+
+    // 画面表示幅がレスポンシブに変わっても描画位置がズレないようスケール補正
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    }
+
+    function startDrawing(e) {
+      e.preventDefault();
+      saveHistory();
+      isDrawing = true;
+      ctx.globalCompositeOperation =
+        mode === "eraser" ? "destination-out" : "source-over";
+
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      ctx.lineWidth = lineWidth
