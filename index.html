@@ -12,6 +12,8 @@
     * {
       box-sizing: border-box;
       font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+      /* ダブルタップによる勝手な拡大を廃止 */
+      touch-action: manipulation;
     }
 
     body {
@@ -70,6 +72,7 @@
       text-indent: -1.8em;
     }
 
+    /* 青色塗りつぶしを削除し、細文字のみのスタイルに変更 */
     .rules-list .example {
       display: block;
       text-indent: 0;
@@ -77,9 +80,6 @@
       font-size: 13px;
       font-weight: 400;
       color: #0369a1;
-      background: #f0f9ff;
-      padding: 4px 10px;
-      border-radius: 8px;
     }
 
     .controls {
@@ -179,7 +179,8 @@
       border-radius: 20px;
       box-shadow: 0 8px 0 #7dd3fc;
       cursor: crosshair;
-      touch-action: none;
+      /* 2本指ピンチズームのみブラウザに許可し、1本指は描画に使う */
+      touch-action: pinch-zoom;
       -webkit-user-select: none;
       user-select: none;
     }
@@ -227,7 +228,7 @@
       }
     }
 
-    /* 青色のポップな確認・完了モーダル用デザイン */
+    /* 青色のポップな確認・完了・テキスト入力モーダル用デザイン */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -295,6 +296,26 @@
       line-height: 1.6;
     }
 
+    /* テキスト入力用テキストエリア（スマホ・ウェブ標準のゴシック体） */
+    .text-input-area {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      font-size: 16px;
+      color: #1e293b;
+      background: #f0f9ff;
+      border: 2px solid #38bdf8;
+      border-radius: 14px;
+      resize: vertical;
+      outline: none;
+    }
+
+    .text-input-area:focus {
+      border-color: #0284c7;
+      background: #ffffff;
+    }
+
     .modal-buttons {
       display: flex;
       gap: 12px;
@@ -342,9 +363,10 @@
   <div class="controls">
     <button id="penBtn" class="active" type="button">✏️ ペン</button>
     <button id="eraserBtn" type="button">🧽 消しゴム</button>
+    <button id="textBtn" type="button">🔤 テキスト</button>
 
     <label class="slider-label">
-      太さ:
+      太さ/文字:
       <input type="range" id="lineWidth" min="2" max="40" value="7" />
     </label>
 
@@ -355,7 +377,21 @@
 
   <div class="canvas-wrapper">
     <canvas id="drawCanvas" width="640" height="340"></canvas>
-    <p class="hint">※「保存」を押すと、企画者のフォルダへお祝いメッセージが送信・保存されます</p>
+    <p class="hint">※「テキスト」選択時は枠内をタップして文字を配置できます / 2本指で拡大縮小できます</p>
+  </div>
+
+  <!-- テキスト挿入モーダル -->
+  <div id="textModal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-badge">▷◀ テキスト入力 ▷◀</div>
+      <h2 class="modal-title">入れる文字を入力してね</h2>
+      <p class="modal-text">改行もそのままキャンバスに入ります！<br>（「太さ/文字」スライダーで大きさを変えられます）</p>
+      <textarea id="canvasTextInput" class="text-input-area" rows="3" placeholder="例：１０００日おめでとう！"></textarea>
+      <div class="modal-buttons">
+        <button id="textInsertBtn" class="btn-yes" type="button">入れる</button>
+        <button id="textCancelBtn" class="btn-no" type="button">やめる</button>
+      </div>
+    </div>
   </div>
 
   <!-- ① 保存確認ポップアップ（はい / いいえ） -->
@@ -390,12 +426,18 @@
 
       const penBtn = document.getElementById("penBtn");
       const eraserBtn = document.getElementById("eraserBtn");
+      const textBtn = document.getElementById("textBtn");
       const lineWidthInput = document.getElementById("lineWidth");
       const undoBtn = document.getElementById("undoBtn");
       const clearBtn = document.getElementById("clearBtn");
       const saveBtn = document.getElementById("saveBtn");
 
       // モーダル要素
+      const textModal = document.getElementById("textModal");
+      const canvasTextInput = document.getElementById("canvasTextInput");
+      const textInsertBtn = document.getElementById("textInsertBtn");
+      const textCancelBtn = document.getElementById("textCancelBtn");
+
       const confirmModal = document.getElementById("confirmModal");
       const confirmYesBtn = document.getElementById("confirmYesBtn");
       const confirmNoBtn = document.getElementById("confirmNoBtn");
@@ -407,8 +449,11 @@
       ctx.strokeStyle = "#1e293b";
 
       let isDrawing = false;
+      let isPinching = false;
       let isSaving = false;
       let mode = "pen";
+      let pendingTextPos = { x: 40, y: 60 };
+      const activePointers = new Set();
       const history = [];
       const MAX_HISTORY = 30;
 
@@ -428,10 +473,13 @@
         mode = newMode;
         penBtn.classList.toggle("active", mode === "pen");
         eraserBtn.classList.toggle("active", mode === "eraser");
+        textBtn.classList.toggle("active", mode === "text");
+        canvas.style.cursor = mode === "text" ? "text" : "crosshair";
       }
 
       penBtn.addEventListener("click", () => setMode("pen"));
       eraserBtn.addEventListener("click", () => setMode("eraser"));
+      textBtn.addEventListener("click", () => setMode("text"));
 
       function getPos(e) {
         const rect = canvas.getBoundingClientRect();
@@ -443,7 +491,56 @@
         };
       }
 
+      function undo() {
+        if (history.length === 0) return;
+        const previousState = history.pop();
+        ctx.putImageData(previousState, 0, 0);
+        updateUndoButton();
+      }
+
+      // 2本指タッチ時は描画を中断してブラウザの拡大縮小を優先させる
+      canvas.addEventListener("touchstart", (e) => {
+        if (e.touches.length >= 2) {
+          if (isDrawing) {
+            isDrawing = false;
+            ctx.closePath();
+            // 2本目が触れる直前に引かれた不要な点を戻す
+            undo();
+          }
+          isPinching = true;
+        }
+      }, { passive: true });
+
+      canvas.addEventListener("touchend", (e) => {
+        if (e.touches.length === 0) {
+          isPinching = false;
+        }
+      }, { passive: true });
+
       canvas.addEventListener("pointerdown", (e) => {
+        activePointers.add(e.pointerId);
+
+        // 2本以上の指で触れている場合は描画しない（ズームに任せる）
+        if (activePointers.size >= 2 || isPinching) {
+          if (isDrawing) {
+            isDrawing = false;
+            ctx.closePath();
+            undo();
+          }
+          return;
+        }
+
+        const pos = getPos(e);
+
+        // テキストモードのときはタップ位置を記録して入力モーダルを開く
+        if (mode === "text") {
+          pendingTextPos = pos;
+          canvasTextInput.value = "";
+          textModal.classList.add("show");
+          setTimeout(() => canvasTextInput.focus(), 50);
+          return;
+        }
+
         e.preventDefault();
         canvas.setPointerCapture(e.pointerId);
         saveHistory();
@@ -453,7 +550,6 @@
           mode === "eraser" ? "destination-out" : "source-over";
         ctx.lineWidth = Number(lineWidthInput.value);
 
-        const pos = getPos(e);
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
         ctx.lineTo(pos.x + 0.1, pos.y + 0.1);
@@ -461,6 +557,7 @@
       });
 
       canvas.addEventListener("pointermove", (e) => {
+        if (activePointers.size >= 2 || isPinching) return;
         if (!isDrawing) return;
         e.preventDefault();
         const pos = getPos(e);
@@ -469,23 +566,44 @@
       });
 
       function stopDrawing(e) {
+        if (e && e.pointerId !== undefined) {
+          activePointers.delete(e.pointerId);
+          if (canvas.hasPointerCapture(e.pointerId)) {
+            canvas.releasePointerCapture(e.pointerId);
+          }
+        }
         if (!isDrawing) return;
         isDrawing = false;
-        if (e && e.pointerId !== undefined && canvas.hasPointerCapture(e.pointerId)) {
-          canvas.releasePointerCapture(e.pointerId);
-        }
         ctx.closePath();
       }
 
       canvas.addEventListener("pointerup", stopDrawing);
       canvas.addEventListener("pointercancel", stopDrawing);
 
-      function undo() {
-        if (history.length === 0) return;
-        const previousState = history.pop();
-        ctx.putImageData(previousState, 0, 0);
-        updateUndoButton();
-      }
+      // テキストをキャンバスに描画する処理
+      textInsertBtn.addEventListener("click", () => {
+        const text = canvasTextInput.value;
+        if (text.trim() !== "") {
+          saveHistory();
+          ctx.globalCompositeOperation = "source-over";
+          ctx.fillStyle = "#1e293b";
+          // 太さスライダー（2〜40）を文字サイズ（14px〜52px）に変換
+          const fontSize = Math.max(14, Number(lineWidthInput.value) + 12);
+          ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif`;
+          ctx.textBaseline = "top";
+
+          const lines = text.split("\n");
+          const lineHeight = fontSize * 1.3;
+          lines.forEach((line, idx) => {
+            ctx.fillText(line, pendingTextPos.x, pendingTextPos.y + idx * lineHeight);
+          });
+        }
+        textModal.classList.remove("show");
+      });
+
+      textCancelBtn.addEventListener("click", () => {
+        textModal.classList.remove("show");
+      });
 
       undoBtn.addEventListener("click", undo);
 
@@ -510,41 +628,3 @@
       confirmNoBtn.addEventListener("click", () => {
         confirmModal.classList.remove("show");
       });
-
-      // 「はい」 → 送信＆保存処理を実行して完了ポップアップを表示
-      confirmYesBtn.addEventListener("click", async () => {
-        if (isSaving) return;
-        isSaving = true;
-        confirmYesBtn.disabled = true;
-        confirmYesBtn.textContent = "保存中...";
-
-        const dataUrl = canvas.toDataURL("image/png");
-        const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxPG3gw_Nxaz-0sS0emq7OPzQ-JEnUQlmkQzHqC_SB4k8-ShmH-HDjqPPBuHjOXObdA/exec";
-
-        try {
-          await fetch(UPLOAD_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ image: dataUrl })
-          });
-
-          confirmModal.classList.remove("show");
-          doneModal.classList.add("show");
-        } catch (err) {
-          alert("通信エラーが発生しました。もう一度お試しください。");
-        } finally {
-          isSaving = false;
-          confirmYesBtn.disabled = false;
-          confirmYesBtn.textContent = "はい";
-        }
-      });
-
-      // 完了ポップアップを閉じる
-      doneCloseBtn.addEventListener("click", () => {
-        doneModal.classList.remove("show");
-      });
-    });
-  </script>
-</body>
-</html>
