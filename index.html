@@ -2,9 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>▷◀紡木こかげちゃんのデビュー１０００日をお祝いしよう▷◀</title>
-  <!-- 丸文字フォント（M PLUS Rounded 1c）の読み込み -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet" />
@@ -24,13 +23,11 @@
       align-items: center;
       gap: 18px;
       color: #1e4e68;
-      /* 水色のポップな水玉背景 */
       background-color: #e6f7ff;
       background-image: radial-gradient(#bae6fd 2.5px, transparent 2.5px);
       background-size: 24px 24px;
     }
 
-    /* タイトル */
     h1 {
       margin: 0;
       padding: 14px 28px;
@@ -45,7 +42,6 @@
       letter-spacing: 0.03em;
     }
 
-    /* ルール枠 */
     .rules-box {
       width: 100%;
       max-width: 640px;
@@ -85,7 +81,6 @@
       border-radius: 8px;
     }
 
-    /* 操作パネル */
     .controls {
       width: 100%;
       max-width: 640px;
@@ -146,7 +141,6 @@
       box-shadow: none;
     }
 
-    /* 選択中のツール（ペン／消しゴム） */
     button.active {
       background: #38bdf8;
       color: #ffffff;
@@ -154,7 +148,6 @@
       box-shadow: 0 3px 0 #0284c7;
     }
 
-    /* 保存ボタン */
     button.save {
       background: linear-gradient(135deg, #38bdf8, #0284c7);
       color: #ffffff;
@@ -167,7 +160,6 @@
       filter: brightness(1.06);
     }
 
-    /* キャンバスエリア */
     .canvas-wrapper {
       width: 100%;
       max-width: 640px;
@@ -178,6 +170,7 @@
     }
 
     canvas {
+      display: block;
       width: 100%;
       height: auto;
       background-color: #ffffff;
@@ -186,6 +179,8 @@
       box-shadow: 0 8px 0 #7dd3fc;
       cursor: crosshair;
       touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     .hint {
@@ -231,73 +226,127 @@
   </div>
 
   <script>
-    const canvas = document.getElementById("drawCanvas");
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    window.addEventListener("DOMContentLoaded", () => {
+      const canvas = document.getElementById("drawCanvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-    const penBtn = document.getElementById("penBtn");
-    const eraserBtn = document.getElementById("eraserBtn");
-    const lineWidthInput = document.getElementById("lineWidth");
-    const undoBtn = document.getElementById("undoBtn");
-    const clearBtn = document.getElementById("clearBtn");
-    const saveBtn = document.getElementById("saveBtn");
+      const penBtn = document.getElementById("penBtn");
+      const eraserBtn = document.getElementById("eraserBtn");
+      const lineWidthInput = document.getElementById("lineWidth");
+      const undoBtn = document.getElementById("undoBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const saveBtn = document.getElementById("saveBtn");
 
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "#1e293b";
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "#1e293b";
 
-    let isDrawing = false;
-    let mode = "pen";
-    const history = [];
-    const MAX_HISTORY = 30;
+      let isDrawing = false;
+      let mode = "pen";
+      const history = [];
+      const MAX_HISTORY = 30;
 
-    function saveHistory() {
-      if (history.length >= MAX_HISTORY) {
-        history.shift();
+      function saveHistory() {
+        if (history.length >= MAX_HISTORY) {
+          history.shift();
+        }
+        history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        updateUndoButton();
       }
-      history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-      updateUndoButton();
-    }
 
-    function updateUndoButton() {
-      undoBtn.disabled = history.length === 0;
-    }
+      function updateUndoButton() {
+        undoBtn.disabled = history.length === 0;
+      }
 
-    function setMode(newMode) {
-      mode = newMode;
-      penBtn.classList.toggle("active", mode === "pen");
-      eraserBtn.classList.toggle("active", mode === "eraser");
-    }
+      function setMode(newMode) {
+        mode = newMode;
+        penBtn.classList.toggle("active", mode === "pen");
+        eraserBtn.classList.toggle("active", mode === "eraser");
+      }
 
-    penBtn.addEventListener("click", () => setMode("pen"));
-    eraserBtn.addEventListener("click", () => setMode("eraser"));
+      penBtn.addEventListener("click", () => setMode("pen"));
+      eraserBtn.addEventListener("click", () => setMode("eraser"));
 
-    // 画面表示幅がレスポンシブに変わっても描画位置がズレないようスケール補正
-    function getPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY
-      };
-    }
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+          x: (e.clientX - rect.left) * scaleX,
+          y: (e.clientY - rect.top) * scaleY
+        };
+      }
 
-    function startDrawing(e) {
-      e.preventDefault();
-      saveHistory();
-      isDrawing = true;
-      ctx.globalCompositeOperation =
-        mode === "eraser" ? "destination-out" : "source-over";
+      // マウス・指・Apple Pencilすべてに統一対応する Pointer Events
+      canvas.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        canvas.setPointerCapture(e.pointerId);
+        saveHistory();
+        isDrawing = true;
 
-      const pos = getPos(e);
-      ctx.beginPath();
-      ctx.moveTo(pos.x, pos.y);
-    }
+        ctx.globalCompositeOperation =
+          mode === "eraser" ? "destination-out" : "source-over";
+        ctx.lineWidth = Number(lineWidthInput.value);
 
-    function draw(e) {
-      if (!isDrawing) return;
-      e.preventDefault();
-      const pos = getPos(e);
-      ctx.lineWidth = lineWidth
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        // ちょんとタップしただけでも点が見えるようにする
+        ctx.lineTo(pos.x + 0.1, pos.y + 0.1);
+        ctx.stroke();
+      });
+
+      canvas.addEventListener("pointermove", (e) => {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+      });
+
+      function stopDrawing(e) {
+        if (!isDrawing) return;
+        isDrawing = false;
+        if (e && e.pointerId !== undefined && canvas.hasPointerCapture(e.pointerId)) {
+          canvas.releasePointerCapture(e.pointerId);
+        }
+        ctx.closePath();
+      }
+
+      canvas.addEventListener("pointerup", stopDrawing);
+      canvas.addEventListener("pointercancel", stopDrawing);
+
+      function undo() {
+        if (history.length === 0) return;
+        const previousState = history.pop();
+        ctx.putImageData(previousState, 0, 0);
+        updateUndoButton();
+      }
+
+      undoBtn.addEventListener("click", undo);
+
+      window.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          undo();
+        }
+      });
+
+      clearBtn.addEventListener("click", () => {
+        saveHistory();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      });
+
+      saveBtn.addEventListener("click", () => {
+        const dataUrl = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.download = "kokage-1000days-message.png";
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    });
+  </script>
+</body>
+</html>
