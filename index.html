@@ -168,8 +168,8 @@
       gap: 6px;
     }
 
-    /* 2本指ズーム時も外枠からはみ出さないようにするビューポート */
     .canvas-viewport {
+      position: relative;
       width: 100%;
       overflow: hidden;
       border: 4px solid #38bdf8;
@@ -179,6 +179,12 @@
       touch-action: none;
     }
 
+    .canvas-stage {
+      position: relative;
+      width: 100%;
+      transform-origin: 0 0;
+    }
+
     canvas {
       display: block;
       width: 100%;
@@ -186,9 +192,75 @@
       background-color: #ffffff;
       cursor: crosshair;
       touch-action: none;
-      transform-origin: 0 0;
       -webkit-user-select: none;
       user-select: none;
+    }
+
+    /* 挿入後のテキストボックス（移動・拡大縮小・編集が可能） */
+    .placed-textbox {
+      position: absolute;
+      min-width: 80px;
+      padding: 4px 8px;
+      border: 2px dashed #0284c7;
+      border-radius: 8px;
+      background: rgba(240, 249, 255, 0.72);
+      color: #1e293b;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      font-weight: 700;
+      line-height: 1.3;
+      white-space: pre-wrap;
+      word-break: break-word;
+      cursor: move;
+      touch-action: none;
+      z-index: 10;
+    }
+
+    .placed-textbox.selected {
+      border-style: solid;
+      border-color: #0284c7;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+    }
+
+    .placed-textbox-content {
+      outline: none;
+      cursor: inherit;
+    }
+
+    .placed-textbox-content:focus {
+      cursor: text;
+    }
+
+    /* 拡大・縮小用ハンドル（右下） */
+    .resize-handle {
+      position: absolute;
+      right: -8px;
+      bottom: -8px;
+      width: 20px;
+      height: 20px;
+      background: #0284c7;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      cursor: nwse-resize;
+      touch-action: none;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    }
+
+    /* 削除ボタン（右上） */
+    .delete-box-btn {
+      position: absolute;
+      top: -9px;
+      right: -9px;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      line-height: 16px;
+      font-size: 12px;
+      text-align: center;
+      background: #ef4444;
+      color: #ffffff;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .hint {
@@ -198,7 +270,6 @@
       text-align: center;
     }
 
-    /* 横画面（ランドスケープ）時のレイアウト調整 */
     @media (orientation: landscape) and (max-height: 540px) {
       body {
         padding: 14px 20px 28px;
@@ -234,7 +305,7 @@
       }
     }
 
-    /* 青色のポップな確認・完了・テキスト入力モーダル用デザイン */
+    /* 青色のポップな確認・完了モーダル用デザイン */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -302,25 +373,6 @@
       line-height: 1.6;
     }
 
-    .text-input-area {
-      width: 100%;
-      padding: 10px 12px;
-      margin-bottom: 16px;
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
-      font-size: 16px;
-      color: #1e293b;
-      background: #f0f9ff;
-      border: 2px solid #38bdf8;
-      border-radius: 14px;
-      resize: vertical;
-      outline: none;
-    }
-
-    .text-input-area:focus {
-      border-color: #0284c7;
-      background: #ffffff;
-    }
-
     .modal-buttons {
       display: flex;
       gap: 12px;
@@ -383,23 +435,11 @@
 
   <div class="canvas-wrapper">
     <div id="canvasViewport" class="canvas-viewport">
-      <canvas id="drawCanvas" width="640" height="340"></canvas>
-    </div>
-    <p class="hint">※1本指で描画・2本指で枠内を拡大縮小＆移動できます / 「テキスト」選択時は枠内タップで文字入力</p>
-  </div>
-
-  <!-- テキスト挿入モーダル -->
-  <div id="textModal" class="modal-overlay" role="dialog" aria-modal="true">
-    <div class="modal-box">
-      <div class="modal-badge">▷◀ テキスト入力 ▷◀</div>
-      <h2 class="modal-title">入れる文字を入力してね</h2>
-      <p class="modal-text">改行もそのままキャンバスに入ります！<br>（「太さ/文字」スライダーで大きさを変えられます）</p>
-      <textarea id="canvasTextInput" class="text-input-area" rows="3" placeholder="例：１０００日おめでとう！"></textarea>
-      <div class="modal-buttons">
-        <button id="textInsertBtn" class="btn-yes" type="button">入れる</button>
-        <button id="textCancelBtn" class="btn-no" type="button">やめる</button>
+      <div id="canvasStage" class="canvas-stage">
+        <canvas id="drawCanvas" width="640" height="340"></canvas>
       </div>
     </div>
+    <p class="hint">※テキストボックスはドラッグで移動・右下の丸で拡大縮小できます / 2本指で拡大縮小</p>
   </div>
 
   <!-- ① 保存確認ポップアップ（はい / いいえ） -->
@@ -430,6 +470,7 @@
   <script>
     window.addEventListener("DOMContentLoaded", () => {
       const canvasViewport = document.getElementById("canvasViewport");
+      const canvasStage = document.getElementById("canvasStage");
       const canvas = document.getElementById("drawCanvas");
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
@@ -442,12 +483,6 @@
       const clearBtn = document.getElementById("clearBtn");
       const saveBtn = document.getElementById("saveBtn");
 
-      // モーダル要素
-      const textModal = document.getElementById("textModal");
-      const canvasTextInput = document.getElementById("canvasTextInput");
-      const textInsertBtn = document.getElementById("textInsertBtn");
-      const textCancelBtn = document.getElementById("textCancelBtn");
-
       const confirmModal = document.getElementById("confirmModal");
       const confirmYesBtn = document.getElementById("confirmYesBtn");
       const confirmNoBtn = document.getElementById("confirmNoBtn");
@@ -459,10 +494,12 @@
       ctx.strokeStyle = "#1e293b";
 
       let isDrawing = false;
+      let hasStartedStroke = false;
+      let strokeStartPos = null;
+      let strokeStartTimer = null;
       let isPinching = false;
       let isSaving = false;
       let mode = "pen";
-      let pendingTextPos = { x: 40, y: 60 };
       const history = [];
       const MAX_HISTORY = 30;
 
@@ -475,7 +512,6 @@
       let lastPinchCenter = { x: 0, y: 0 };
 
       function applyTransform() {
-        // 枠外に行きすぎないよう移動範囲を制限
         const vpRect = canvasViewport.getBoundingClientRect();
         const maxPanX = 0;
         const minPanX = vpRect.width * (1 - scale);
@@ -485,7 +521,7 @@
         translateX = Math.min(maxPanX, Math.max(minPanX, translateX));
         translateY = Math.min(maxPanY, Math.max(minPanY, translateY));
 
-        canvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        canvasStage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
         resetZoomBtn.disabled = scale === 1 && translateX === 0 && translateY === 0;
       }
 
@@ -508,20 +544,39 @@
         undoBtn.disabled = history.length === 0;
       }
 
+      function deselectAllTextboxes() {
+        canvasStage.querySelectorAll(".placed-textbox").forEach((box) => {
+          box.classList.remove("selected");
+        });
+      }
+
       function setMode(newMode) {
         mode = newMode;
         penBtn.classList.toggle("active", mode === "pen");
         eraserBtn.classList.toggle("active", mode === "eraser");
         textBtn.classList.toggle("active", mode === "text");
         canvas.style.cursor = mode === "text" ? "text" : "crosshair";
+        if (mode !== "text") {
+          deselectAllTextboxes();
+        }
       }
 
       penBtn.addEventListener("click", () => setMode("pen"));
       eraserBtn.addEventListener("click", () => setMode("eraser"));
       textBtn.addEventListener("click", () => setMode("text"));
 
-      // ズーム状態でも正確にキャンバス座標を取得
-      function getPos(clientX, clientY) {
+      // ステージ上の相対座標（%基準で拡大縮小やリサイズに強い）
+      function getStagePercentPos(clientX, clientY) {
+        const rect = canvasStage.getBoundingClientRect();
+        const xPercent = ((clientX - rect.left) / rect.width) * 100;
+        const yPercent = ((clientY - rect.top) / rect.height) * 100;
+        return {
+          xPercent: Math.max(0, Math.min(90, xPercent)),
+          yPercent: Math.max(0, Math.min(90, yPercent))
+        };
+      }
+
+      function getCanvasPos(clientX, clientY) {
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
@@ -529,6 +584,186 @@
           x: (clientX - rect.left) * scaleX,
           y: (clientY - rect.top) * scaleY
         };
+      }
+
+      // テキストボックスを生成する関数
+      function createTextbox(xPercent, yPercent) {
+        deselectAllTextboxes();
+
+        const box = document.createElement("div");
+        box.className = "placed-textbox selected";
+        box.style.left = `${xPercent}%`;
+        box.style.top = `${yPercent}%`;
+
+        const initialFontSize = Math.max(14, Number(lineWidthInput.value) + 12);
+        box.dataset.fontSize = String(initialFontSize);
+        box.style.fontSize = `${initialFontSize}px`;
+
+        const content = document.createElement("div");
+        content.className = "placed-textbox-content";
+        content.contentEditable = "true";
+        content.textContent = "文字を入力";
+
+        const resizeHandle = document.createElement("div");
+        resizeHandle.className = "resize-handle";
+        resizeHandle.title = "ドラッグで拡大・縮小";
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "delete-box-btn";
+        deleteBtn.textContent = "×";
+        deleteBtn.title = "削除";
+
+        deleteBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          box.remove();
+        });
+
+        // テキストボックスのドラッグ移動
+        let isDraggingBox = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let boxStartLeftPx = 0;
+        let boxStartTopPx = 0;
+
+        box.addEventListener("pointerdown", (e) => {
+          if (e.target === resizeHandle || e.target === deleteBtn) return;
+          e.stopPropagation();
+          deselectAllTextboxes();
+          box.classList.add("selected");
+
+          // すでに編集中でなければドラッグ移動を開始（ダブルタップや編集時は文字入力も可）
+          if (document.activeElement !== content) {
+            e.preventDefault();
+            isDraggingBox = true;
+            box.setPointerCapture(e.pointerId);
+            const stageRect = canvasStage.getBoundingClientRect();
+            const boxRect = box.getBoundingClientRect();
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            boxStartLeftPx = (boxRect.left - stageRect.left) / scale;
+            boxStartTopPx = (boxRect.top - stageRect.top) / scale;
+          }
+        });
+
+        box.addEventListener("pointermove", (e) => {
+          if (!isDraggingBox) return;
+          e.preventDefault();
+          const dx = (e.clientX - dragStartX) / scale;
+          const dy = (e.clientY - dragStartY) / scale;
+          const stageWidth = canvasStage.clientWidth;
+          const stageHeight = canvasStage.clientHeight;
+
+          const nextLeftPx = Math.max(0, Math.min(stageWidth - 40, boxStartLeftPx + dx));
+          const nextTopPx = Math.max(0, Math.min(stageHeight - 24, boxStartTopPx + dy));
+
+          box.style.left = `${(nextLeftPx / stageWidth) * 100}%`;
+          box.style.top = `${(nextTopPx / stageHeight) * 100}%`;
+        });
+
+        const stopBoxDrag = (e) => {
+          if (!isDraggingBox) return;
+          isDraggingBox = false;
+          if (e && e.pointerId !== undefined && box.hasPointerCapture(e.pointerId)) {
+            box.releasePointerCapture(e.pointerId);
+          }
+        };
+
+        box.addEventListener("pointerup", stopBoxDrag);
+        box.addEventListener("pointercancel", stopBoxDrag);
+
+        // クリックで文字編集に入れるようにする
+        content.addEventListener("click", (e) => {
+          e.stopPropagation();
+          content.focus();
+        });
+
+        // 右下ハンドルで拡大・縮小
+        let isResizing = false;
+        let resizeStartX = 0;
+        let resizeStartFontSize = initialFontSize;
+
+        resizeHandle.addEventListener("pointerdown", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          isResizing = true;
+          resizeHandle.setPointerCapture(e.pointerId);
+          resizeStartX = e.clientX;
+          resizeStartFontSize = Number(box.dataset.fontSize) || initialFontSize;
+        });
+
+        resizeHandle.addEventListener("pointermove", (e) => {
+          if (!isResizing) return;
+          e.preventDefault();
+          const dx = (e.clientX - resizeStartX) / scale;
+          const nextSize = Math.max(12, Math.min(96, Math.round(resizeStartFontSize + dx * 0.25)));
+          box.dataset.fontSize = String(nextSize);
+          box.style.fontSize = `${nextSize}px`;
+        });
+
+        const stopResize = (e) => {
+          if (!isResizing) return;
+          isResizing = false;
+          if (e && e.pointerId !== undefined && resizeHandle.hasPointerCapture(e.pointerId)) {
+            resizeHandle.releasePointerCapture(e.pointerId);
+          }
+        };
+
+        resizeHandle.addEventListener("pointerup", stopResize);
+        resizeHandle.addEventListener("pointercancel", stopResize);
+
+        box.appendChild(content);
+        box.appendChild(deleteBtn);
+        box.appendChild(resizeHandle);
+        canvasStage.appendChild(box);
+
+        // 最初の「文字を入力」を選択状態にしてすぐ書き換えやすくする
+        setTimeout(() => {
+          content.focus();
+          const range = document.createRange();
+          range.selectNodeContents(content);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }, 30);
+      }
+
+      // テキストボックスをすべてキャンバスに焼き込む（保存・クリア・巻き戻し前用）
+      function bakeTextboxesToCanvas() {
+        const boxes = Array.from(canvasStage.querySelectorAll(".placed-textbox"));
+        if (boxes.length === 0) return;
+
+        const stageWidth = canvasStage.clientWidth || canvas.width;
+        const stageHeight = canvasStage.clientHeight || canvas.height;
+        const ratioX = canvas.width / stageWidth;
+        const ratioY = canvas.height / stageHeight;
+
+        boxes.forEach((box) => {
+          const content = box.querySelector(".placed-textbox-content");
+          const text = (content ? content.innerText : "").trim();
+          if (text !== "" && text !== "文字を入力") {
+            const boxRect = box.getBoundingClientRect();
+            const stageRect = canvasStage.getBoundingClientRect();
+            const contentRect = content ? content.getBoundingClientRect() : boxRect;
+
+            const x = ((contentRect.left - stageRect.left) / scale) * ratioX;
+            const y = ((contentRect.top - stageRect.top) / scale) * ratioY;
+            const fontSizeCss = Number(box.dataset.fontSize) || 20;
+            const fontSizeCanvas = fontSizeCss * ratioY;
+
+            ctx.globalCompositeOperation = "source-over";
+            ctx.fillStyle = "#1e293b";
+            ctx.font = `700 ${fontSizeCanvas}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif`;
+            ctx.textBaseline = "top";
+
+            const lines = text.split("\n");
+            const lineHeight = fontSizeCanvas * 1.3;
+            lines.forEach((line, idx) => {
+              ctx.fillText(line, x, y + idx * lineHeight);
+            });
+          }
+          box.remove();
+        });
       }
 
       function undo() {
@@ -551,45 +786,62 @@
         };
       }
 
-      // 2本指ピンチズーム＆2本指移動
+      function cancelPendingOrActiveStroke() {
+        if (strokeStartTimer) {
+          clearTimeout(strokeStartTimer);
+          strokeStartTimer = null;
+        }
+        if (hasStartedStroke) {
+          hasStartedStroke = false;
+          isDrawing = false;
+          ctx.closePath();
+          undo();
+        } else {
+          isDrawing = false;
+          strokeStartPos = null;
+        }
+      }
+
+      // 2本指タッチ時は描画を即座にキャンセルしてズームを優先
       canvasViewport.addEventListener("touchstart", (e) => {
-        if (e.touches.length === 2) {
+        if (e.touches.length >= 2) {
           e.preventDefault();
-          if (isDrawing) {
-            isDrawing = false;
-            ctx.closePath();
-            undo();
-          }
+          cancelPendingOrActiveStroke();
           isPinching = true;
-          initialPinchDistance = getDistance(e.touches[0], e.touches[1]);
-          initialScale = scale;
-          lastPinchCenter = getCenter(e.touches[0], e.touches[1]);
+          if (e.touches.length === 2) {
+            initialPinchDistance = getDistance(e.touches[0], e.touches[1]);
+            initialScale = scale;
+            lastPinchCenter = getCenter(e.touches[0], e.touches[1]);
+          }
         }
       }, { passive: false });
 
       canvasViewport.addEventListener("touchmove", (e) => {
-        if (e.touches.length === 2 && isPinching) {
+        if (e.touches.length >= 2) {
           e.preventDefault();
-          const currentDistance = getDistance(e.touches[0], e.touches[1]);
-          const currentCenter = getCenter(e.touches[0], e.touches[1]);
-          const vpRect = canvasViewport.getBoundingClientRect();
+          cancelPendingOrActiveStroke();
+          isPinching = true;
+          if (e.touches.length === 2) {
+            const currentDistance = getDistance(e.touches[0], e.touches[1]);
+            const currentCenter = getCenter(e.touches[0], e.touches[1]);
+            const vpRect = canvasViewport.getBoundingClientRect();
 
-          const newScale = Math.min(4, Math.max(1, initialScale * (currentDistance / initialPinchDistance)));
-          const centerOffsetX = currentCenter.x - vpRect.left;
-          const centerOffsetY = currentCenter.y - vpRect.top;
+            const newScale = Math.min(4, Math.max(1, initialScale * (currentDistance / initialPinchDistance)));
+            const centerOffsetX = currentCenter.x - vpRect.left;
+            const centerOffsetY = currentCenter.y - vpRect.top;
 
-          // ピンチ中心を基準に拡大縮小＋指の移動分を反映
-          const ratio = newScale / scale;
-          translateX = centerOffsetX - (centerOffsetX - translateX) * ratio + (currentCenter.x - lastPinchCenter.x);
-          translateY = centerOffsetY - (centerOffsetY - translateY) * ratio + (currentCenter.y - lastPinchCenter.y);
-          scale = newScale;
-          lastPinchCenter = currentCenter;
+            const ratio = newScale / scale;
+            translateX = centerOffsetX - (centerOffsetX - translateX) * ratio + (currentCenter.x - lastPinchCenter.x);
+            translateY = centerOffsetY - (centerOffsetY - translateY) * ratio + (currentCenter.y - lastPinchCenter.y);
+            scale = newScale;
+            lastPinchCenter = currentCenter;
 
-          if (scale === 1) {
-            translateX = 0;
-            translateY = 0;
+            if (scale === 1) {
+              translateX = 0;
+              translateY = 0;
+            }
+            applyTransform();
           }
-          applyTransform();
         }
       }, { passive: false });
 
@@ -599,24 +851,11 @@
         }
       });
 
-      // 1本指・マウス・ペン描画
-      canvas.addEventListener("pointerdown", (e) => {
-        if (isPinching) return;
-        e.preventDefault();
-
-        const pos = getPos(e.clientX, e.clientY);
-
-        if (mode === "text") {
-          pendingTextPos = pos;
-          canvasTextInput.value = "";
-          textModal.classList.add("show");
-          setTimeout(() => canvasTextInput.focus(), 50);
-          return;
-        }
-
-        canvas.setPointerCapture(e.pointerId);
+      function beginStrokeAt(pos) {
+        if (isPinching || hasStartedStroke) return;
         saveHistory();
         isDrawing = true;
+        hasStartedStroke = true;
 
         ctx.globalCompositeOperation =
           mode === "eraser" ? "destination-out" : "source-over";
@@ -626,53 +865,87 @@
         ctx.moveTo(pos.x, pos.y);
         ctx.lineTo(pos.x + 0.1, pos.y + 0.1);
         ctx.stroke();
+      }
+
+      canvas.addEventListener("pointerdown", (e) => {
+        if (isPinching) return;
+        e.preventDefault();
+
+        if (mode === "text") {
+          const pct = getStagePercentPos(e.clientX, e.clientY);
+          createTextbox(pct.xPercent, pct.yPercent);
+          return;
+        }
+
+        deselectAllTextboxes();
+        canvas.setPointerCapture(e.pointerId);
+
+        const pos = getCanvasPos(e.clientX, e.clientY);
+        strokeStartPos = pos;
+        isDrawing = true;
+        hasStartedStroke = false;
+
+        // 2本指同時タッチ時に点が打たれるのを防ぐため、少し待つか動いたらストローク開始
+        strokeStartTimer = setTimeout(() => {
+          if (isDrawing && !isPinching && strokeStartPos) {
+            beginStrokeAt(strokeStartPos);
+          }
+        }, 45);
       });
 
       canvas.addEventListener("pointermove", (e) => {
         if (!isDrawing || isPinching) return;
         e.preventDefault();
-        const pos = getPos(e.clientX, e.clientY);
+
+        const pos = getCanvasPos(e.clientX, e.clientY);
+
+        if (!hasStartedStroke) {
+          if (strokeStartTimer) {
+            clearTimeout(strokeStartTimer);
+            strokeStartTimer = null;
+          }
+          beginStrokeAt(strokeStartPos || pos);
+        }
+
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
       });
 
       function stopDrawing(e) {
-        if (!isDrawing) return;
-        isDrawing = false;
+        if (strokeStartTimer) {
+          clearTimeout(strokeStartTimer);
+          strokeStartTimer = null;
+        }
+
         if (e && e.pointerId !== undefined && canvas.hasPointerCapture(e.pointerId)) {
           canvas.releasePointerCapture(e.pointerId);
         }
+
+        // 2本指ピンチにならずに指を離した場合は、短いタップでも点を描画
+        if (isDrawing && !hasStartedStroke && !isPinching && strokeStartPos) {
+          beginStrokeAt(strokeStartPos);
+        }
+
+        isDrawing = false;
+        hasStartedStroke = false;
+        strokeStartPos = null;
         ctx.closePath();
       }
 
       canvas.addEventListener("pointerup", stopDrawing);
       canvas.addEventListener("pointercancel", stopDrawing);
 
-      // テキストをキャンバスに描画する処理
-      textInsertBtn.addEventListener("click", () => {
-        const text = canvasTextInput.value;
-        if (text.trim() !== "") {
-          saveHistory();
-          ctx.globalCompositeOperation = "source-over";
-          ctx.fillStyle = "#1e293b";
-          const fontSize = Math.max(14, Number(lineWidthInput.value) + 12);
-          ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif`;
-          ctx.textBaseline = "top";
-
-          const lines = text.split("\n");
-          const lineHeight = fontSize * 1.3;
-          lines.forEach((line, idx) => {
-            ctx.fillText(line, pendingTextPos.x, pendingTextPos.y + idx * lineHeight);
-          });
+      undoBtn.addEventListener("click", () => {
+        // テキストボックスがある場合はまず直前の描画を戻し、なければテキストボックスを1つ消す
+        if (history.length > 0) {
+          undo();
+        } else {
+          const boxes = canvasStage.querySelectorAll(".placed-textbox");
+          if (boxes.length > 0) {
+            boxes[boxes.length - 1].remove();
+          }
         }
-        textModal.classList.remove("show");
       });
-
-      textCancelBtn.addEventListener("click", () => {
-        textModal.classList.remove("show");
-      });
-
-      undoBtn.addEventListener("click", undo);
 
       window.addEventListener("keydown", (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -684,24 +957,25 @@
       clearBtn.addEventListener("click", () => {
         saveHistory();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvasStage.querySelectorAll(".placed-textbox").forEach((box) => box.remove());
       });
 
-      // 「保存」ボタン → 確認ポップアップを表示
       saveBtn.addEventListener("click", () => {
         confirmModal.classList.add("show");
       });
 
-      // 「いいえ」 → 確認ポップアップを閉じる
       confirmNoBtn.addEventListener("click", () => {
         confirmModal.classList.remove("show");
       });
 
-      // 「はい」 → 送信＆保存処理を実行して完了ポップアップを表示
       confirmYesBtn.addEventListener("click", async () => {
         if (isSaving) return;
         isSaving = true;
         confirmYesBtn.disabled = true;
         confirmYesBtn.textContent = "保存中...";
+
+        // 保存前にテキストボックスの内容をキャンバスに焼き込む
+        bakeTextboxesToCanvas();
 
         const dataUrl = canvas.toDataURL("image/png");
         const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxPG3gw_Nxaz-0sS0emq7OPzQ-JEnUQlmkQzHqC_SB4k8-ShmH-HDjqPPBuHjOXObdA/exec";
@@ -725,7 +999,6 @@
         }
       });
 
-      // 完了ポップアップを閉じる
       doneCloseBtn.addEventListener("click", () => {
         doneModal.classList.remove("show");
       });
