@@ -189,7 +189,7 @@
       margin: 0;
     }
 
-    /* ▼ 青色のポップな確認・完了モーダル用デザイン ▼ */
+    /* 青色のポップな確認・完了モーダル用デザイン */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -366,6 +366,7 @@
       ctx.strokeStyle = "#1e293b";
 
       let isDrawing = false;
+      let isSaving = false;
       let mode = "pen";
       const history = [];
       const MAX_HISTORY = 30;
@@ -471,47 +472,28 @@
 
       // 「はい」 → 送信＆保存処理を実行して完了ポップアップを表示
       confirmYesBtn.addEventListener("click", async () => {
+        if (isSaving) return;
+        isSaving = true;
         confirmYesBtn.disabled = true;
         confirmYesBtn.textContent = "保存中...";
 
         const dataUrl = canvas.toDataURL("image/png");
-
-        // ★ここにGoogleドライブやCloudinaryなどの送信先URLを設定します
         const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxPG3gw_Nxaz-0sS0emq7OPzQ-JEnUQlmkQzHqC_SB4k8-ShmH-HDjqPPBuHjOXObdA/exec";
 
-try {
-  await fetch(UPLOAD_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ image: dataUrl })
-  });
-
-  confirmModal.classList.remove("show");
-  doneModal.classList.add("show");
-} catch (err) {
-  alert("通信エラーが発生しました。もう一度お試しください。");
-} finally {
-  confirmYesBtn.disabled = false;
-  confirmYesBtn.textContent = "はい";
-}
-
         try {
-          if (UPLOAD_URL) {
-            await fetch(UPLOAD_URL, {
-              method: "POST",
-              body: JSON.stringify({ image: dataUrl })
-            });
-          } else {
-            // 外部保存先を設定するまでの仮動作（動作確認用）
-            await new Promise((r) => setTimeout(r, 400));
-          }
+          await fetch(UPLOAD_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ image: dataUrl })
+          });
 
           confirmModal.classList.remove("show");
           doneModal.classList.add("show");
         } catch (err) {
           alert("通信エラーが発生しました。もう一度お試しください。");
         } finally {
+          isSaving = false;
           confirmYesBtn.disabled = false;
           confirmYesBtn.textContent = "はい";
         }
