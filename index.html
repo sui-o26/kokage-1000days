@@ -477,7 +477,24 @@
         const dataUrl = canvas.toDataURL("image/png");
 
         // ★ここにGoogleドライブやCloudinaryなどの送信先URLを設定します
-        const UPLOAD_URL = "";
+        const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxPG3gw_Nxaz-0sS0emq7OPzQ-JEnUQlmkQzHqC_SB4k8-ShmH-HDjqPPBuHjOXObdA/exec";
+
+try {
+  await fetch(UPLOAD_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ image: dataUrl })
+  });
+
+  confirmModal.classList.remove("show");
+  doneModal.classList.add("show");
+} catch (err) {
+  alert("通信エラーが発生しました。もう一度お試しください。");
+} finally {
+  confirmYesBtn.disabled = false;
+  confirmYesBtn.textContent = "はい";
+}
 
         try {
           if (UPLOAD_URL) {
