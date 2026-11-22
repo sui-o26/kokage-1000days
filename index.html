@@ -439,7 +439,7 @@
         <canvas id="drawCanvas" width="640" height="340"></canvas>
       </div>
     </div>
-    <p class="hint">※テキストボックスはドラッグで移動・右下の丸で拡大縮小できます / 2本指で拡大縮小</p>
+    <p class="hint">※「テキスト」を押すと中央にボックスが出ます / ドラッグで移動・右下の丸で拡大縮小できます</p>
   </div>
 
   <!-- ① 保存確認ポップアップ（はい / いいえ） -->
@@ -500,6 +500,7 @@
       let isPinching = false;
       let isSaving = false;
       let mode = "pen";
+      let textSpawnCount = 0;
       const history = [];
       const MAX_HISTORY = 30;
 
@@ -560,7 +561,7 @@
         penBtn.classList.toggle("active", mode === "pen");
         eraserBtn.classList.toggle("active", mode === "eraser");
         textBtn.classList.toggle("active", mode === "text");
-        canvas.style.cursor = mode === "text" ? "text" : "crosshair";
+        canvas.style.cursor = "crosshair";
         if (mode !== "text") {
           deselectAllTextboxes();
         }
@@ -568,17 +569,17 @@
 
       penBtn.addEventListener("click", () => setMode("pen"));
       eraserBtn.addEventListener("click", () => setMode("eraser"));
-      textBtn.addEventListener("click", () => setMode("text"));
 
-      function getStagePercentPos(clientX, clientY) {
-        const rect = canvasStage.getBoundingClientRect();
-        const xPercent = ((clientX - rect.left) / rect.width) * 100;
-        const yPercent = ((clientY - rect.top) / rect.height) * 100;
-        return {
-          xPercent: Math.max(0, Math.min(82, xPercent)),
-          yPercent: Math.max(0, Math.min(88, yPercent))
-        };
-      }
+      // テキストボタンを押したときに中央へ生成（複数回押されたら斜めに少しずつずらす）
+      textBtn.addEventListener("click", () => {
+        setMode("text");
+        const step = textSpawnCount % 6;
+        textSpawnCount += 1;
+
+        const xPercent = Math.min(72, 34 + step * 5);
+        const yPercent = Math.min(78, 42 + step * 5);
+        createTextbox(xPercent, yPercent);
+      });
 
       function getCanvasPos(clientX, clientY) {
         const rect = canvas.getBoundingClientRect();
@@ -720,10 +721,8 @@
         box.appendChild(resizeHandle);
         canvasStage.appendChild(box);
 
-        // 巻き戻し対象として履歴に記録
         saveHistory(box);
 
-        // 「文字を入力」部分を選択状態にしてすぐ書き換えやすくする
         setTimeout(() => {
           content.focus();
           const range = document.createRange();
@@ -890,12 +889,6 @@
       canvas.addEventListener("pointerdown", (e) => {
         if (isPinching) return;
         e.preventDefault();
-
-        if (mode === "text") {
-          const pct = getStagePercentPos(e.clientX, e.clientY);
-          createTextbox(pct.xPercent, pct.yPercent);
-          return;
-        }
 
         deselectAllTextboxes();
         canvas.setPointerCapture(e.pointerId);
