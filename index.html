@@ -196,14 +196,15 @@
       user-select: none;
     }
 
-    /* 挿入後のテキストボックス（移動・拡大縮小・編集が可能） */
+    /* 挿入後のテキストボックス（右端にくっつかないよう幅を柔軟に制御） */
     .placed-textbox {
       position: absolute;
-      min-width: 180px;
-      padding: 4px 8px;
+      min-width: 120px;
+      max-width: 85%;
+      padding: 4px 10px;
       border: 2px dashed #0284c7;
       border-radius: 8px;
-      background: rgba(240, 249, 255, 0.72);
+      background: rgba(240, 249, 255, 0.78);
       color: #1e293b;
       font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
       font-weight: 700;
@@ -328,13 +329,13 @@
 
     .modal-box {
       width: 100%;
-      max-width: 380px;
+      max-width: 420px;
       max-height: 90vh;
       overflow-y: auto;
       background: #ffffff;
       border: 4px solid #38bdf8;
       border-radius: 28px;
-      padding: 26px 22px 22px;
+      padding: 24px 20px 20px;
       text-align: center;
       box-shadow: 0 8px 0 #7dd3fc, 0 14px 30px rgba(2, 132, 199, 0.25);
       transform: scale(0.92);
@@ -366,11 +367,35 @@
     }
 
     .modal-text {
-      margin: 0 0 20px;
+      margin: 0 0 16px;
       font-size: 13.5px;
       font-weight: 700;
       color: #387194;
       line-height: 1.6;
+    }
+
+    /* 保存確認時の画像プレビュー枠 */
+    .preview-frame {
+      width: 100%;
+      margin: 0 auto 14px;
+      padding: 8px;
+      background-color: #f8fafc;
+      background-image:
+        linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      border: 3px solid #7dd3fc;
+      border-radius: 16px;
+    }
+
+    .preview-frame img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
     }
 
     .modal-buttons {
@@ -439,15 +464,18 @@
         <canvas id="drawCanvas" width="640" height="340"></canvas>
       </div>
     </div>
-    <p class="hint">※「テキスト」を押すと中央にボックスが出ます / ドラッグで移動・右下の丸で拡大縮小できます</p>
+    <p class="hint">※「テキスト」を押すとボックスが出ます / ドラッグで移動・右下の丸で拡大縮小できます</p>
   </div>
 
-  <!-- ① 保存確認ポップアップ（はい / いいえ） -->
+  <!-- ① 保存確認ポップアップ（プレビュー画像＋はい / いいえ） -->
   <div id="confirmModal" class="modal-overlay" role="dialog" aria-modal="true">
     <div class="modal-box">
       <div class="modal-badge">▷◀ 確認 ▷◀</div>
-      <h2 class="modal-title">この内容で保存（送信）して<br>よろしいですか？</h2>
-      <p class="modal-text">「はい」を押すと企画者のフォルダに<br>メッセージ画像が保存されます！</p>
+      <div class="preview-frame">
+        <img id="savePreviewImg" alt="作成したメッセージのプレビュー" />
+      </div>
+      <h2 class="modal-title">この内容で保存して<br>よろしいですか？</h2>
+      <p class="modal-text">「はい」を押すと企画者のフォルダに<br>この画像が保存されます！</p>
       <div class="modal-buttons">
         <button id="confirmYesBtn" class="btn-yes" type="button">はい</button>
         <button id="confirmNoBtn" class="btn-no" type="button">いいえ</button>
@@ -484,6 +512,7 @@
       const saveBtn = document.getElementById("saveBtn");
 
       const confirmModal = document.getElementById("confirmModal");
+      const savePreviewImg = document.getElementById("savePreviewImg");
       const confirmYesBtn = document.getElementById("confirmYesBtn");
       const confirmNoBtn = document.getElementById("confirmNoBtn");
       const doneModal = document.getElementById("doneModal");
@@ -501,6 +530,7 @@
       let isSaving = false;
       let mode = "pen";
       let textSpawnCount = 0;
+      let pendingExportDataUrl = "";
       const history = [];
       const MAX_HISTORY = 30;
 
@@ -570,14 +600,14 @@
       penBtn.addEventListener("click", () => setMode("pen"));
       eraserBtn.addEventListener("click", () => setMode("eraser"));
 
-      // テキストボタンを押したときに中央へ生成（複数回押されたら斜めに少しずつずらす）
+      // テキストボタンを押したときに生成（右端にくっつかないよう左寄り〜中央範囲で斜め配置）
       textBtn.addEventListener("click", () => {
         setMode("text");
-        const step = textSpawnCount % 6;
+        const step = textSpawnCount % 5;
         textSpawnCount += 1;
 
-        const xPercent = Math.min(72, 34 + step * 5);
-        const yPercent = Math.min(78, 42 + step * 5);
+        const xPercent = 12 + step * 4;
+        const yPercent = 28 + step * 8;
         createTextbox(xPercent, yPercent);
       });
 
@@ -607,7 +637,7 @@
         const content = document.createElement("div");
         content.className = "placed-textbox-content";
         content.contentEditable = "true";
-        content.textContent = "文字を入力    ";
+        content.textContent = "文字を入力   ";
 
         const resizeHandle = document.createElement("div");
         resizeHandle.className = "resize-handle";
@@ -658,9 +688,15 @@
           const dy = (e.clientY - dragStartY) / scale;
           const stageWidth = canvasStage.clientWidth;
           const stageHeight = canvasStage.clientHeight;
+          const boxWidth = box.offsetWidth || 120;
+          const boxHeight = box.offsetHeight || 32;
 
-          const nextLeftPx = Math.max(0, Math.min(stageWidth - 40, boxStartLeftPx + dx));
-          const nextTopPx = Math.max(0, Math.min(stageHeight - 24, boxStartTopPx + dy));
+          // ボックス自身の幅・高さを考慮して右端・下端にくっつかない範囲で移動制限
+          const maxLeft = Math.max(0, stageWidth - boxWidth - 8);
+          const maxTop = Math.max(0, stageHeight - boxHeight - 8);
+
+          const nextLeftPx = Math.max(0, Math.min(maxLeft, boxStartLeftPx + dx));
+          const nextTopPx = Math.max(0, Math.min(maxTop, boxStartTopPx + dy));
 
           box.style.left = `${(nextLeftPx / stageWidth) * 100}%`;
           box.style.top = `${(nextTopPx / stageHeight) * 100}%`;
@@ -721,6 +757,17 @@
         box.appendChild(resizeHandle);
         canvasStage.appendChild(box);
 
+        // 生成直後に実際の横幅が右端からはみ出ていたら内側へ補正
+        requestAnimationFrame(() => {
+          const stageWidth = canvasStage.clientWidth;
+          const boxWidth = box.offsetWidth;
+          const currentLeft = (xPercent / 100) * stageWidth;
+          if (currentLeft + boxWidth > stageWidth - 12) {
+            const safeLeft = Math.max(8, stageWidth - boxWidth - 12);
+            box.style.left = `${(safeLeft / stageWidth) * 100}%`;
+          }
+        });
+
         saveHistory(box);
 
         setTimeout(() => {
@@ -734,43 +781,50 @@
         }, 30);
       }
 
-      // テキストボックスをすべてキャンバスに焼き込む（保存・クリア前用）
-      function bakeTextboxesToCanvas() {
+      // プレビュー・保存用に、現在の手書きキャンバス＋テキストボックスを合成した画像DataURLを生成
+      // （「いいえ」で戻ったときもテキストボックスを再編集できるよう元のDOMは残す）
+      function renderCompositeDataUrl() {
+        const exportCanvas = document.createElement("canvas");
+        exportCanvas.width = canvas.width;
+        exportCanvas.height = canvas.height;
+        const exportCtx = exportCanvas.getContext("2d");
+
+        exportCtx.drawImage(canvas, 0, 0);
+
         const boxes = Array.from(canvasStage.querySelectorAll(".placed-textbox"));
-        if (boxes.length === 0) return;
+        if (boxes.length > 0) {
+          const stageWidth = canvasStage.clientWidth || canvas.width;
+          const stageHeight = canvasStage.clientHeight || canvas.height;
+          const ratioX = canvas.width / stageWidth;
+          const ratioY = canvas.height / stageHeight;
+          const stageRect = canvasStage.getBoundingClientRect();
 
-        const stageWidth = canvasStage.clientWidth || canvas.width;
-        const stageHeight = canvasStage.clientHeight || canvas.height;
-        const ratioX = canvas.width / stageWidth;
-        const ratioY = canvas.height / stageHeight;
+          boxes.forEach((box) => {
+            const content = box.querySelector(".placed-textbox-content");
+            const rawText = content ? content.innerText : "";
+            const trimmed = rawText.replace(/\u3000/g, " ").trim();
+            if (trimmed !== "" && trimmed !== "文字を入力") {
+              const contentRect = content ? content.getBoundingClientRect() : box.getBoundingClientRect();
+              const x = ((contentRect.left - stageRect.left) / scale) * ratioX;
+              const y = ((contentRect.top - stageRect.top) / scale) * ratioY;
+              const fontSizeCss = Number(box.dataset.fontSize) || 20;
+              const fontSizeCanvas = fontSizeCss * ratioY;
 
-        boxes.forEach((box) => {
-          const content = box.querySelector(".placed-textbox-content");
-          const rawText = content ? content.innerText : "";
-          const trimmed = rawText.replace(/\u3000/g, " ").trim();
-          if (trimmed !== "" && trimmed !== "文字を入力") {
-            const boxRect = box.getBoundingClientRect();
-            const stageRect = canvasStage.getBoundingClientRect();
-            const contentRect = content ? content.getBoundingClientRect() : boxRect;
+              exportCtx.globalCompositeOperation = "source-over";
+              exportCtx.fillStyle = "#1e293b";
+              exportCtx.font = `700 ${fontSizeCanvas}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif`;
+              exportCtx.textBaseline = "top";
 
-            const x = ((contentRect.left - stageRect.left) / scale) * ratioX;
-            const y = ((contentRect.top - stageRect.top) / scale) * ratioY;
-            const fontSizeCss = Number(box.dataset.fontSize) || 20;
-            const fontSizeCanvas = fontSizeCss * ratioY;
+              const lines = rawText.split("\n");
+              const lineHeight = fontSizeCanvas * 1.3;
+              lines.forEach((line, idx) => {
+                exportCtx.fillText(line, x, y + idx * lineHeight);
+              });
+            }
+          });
+        }
 
-            ctx.globalCompositeOperation = "source-over";
-            ctx.fillStyle = "#1e293b";
-            ctx.font = `700 ${fontSizeCanvas}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif`;
-            ctx.textBaseline = "top";
-
-            const lines = rawText.split("\n");
-            const lineHeight = fontSizeCanvas * 1.3;
-            lines.forEach((line, idx) => {
-              ctx.fillText(line, x, y + idx * lineHeight);
-            });
-          }
-          box.remove();
-        });
+        return exportCanvas.toDataURL("image/png");
       }
 
       function undo() {
@@ -821,7 +875,6 @@
         }
       }
 
-      // 2本指タッチ時は描画を即座にキャンセルしてズームを優先
       canvasViewport.addEventListener("touchstart", (e) => {
         if (e.touches.length >= 2) {
           e.preventDefault();
@@ -962,7 +1015,11 @@
         updateUndoButton();
       });
 
+      // 「保存」ボタン → 完成イメージを生成してプレビュー付き確認ポップアップを表示
       saveBtn.addEventListener("click", () => {
+        deselectAllTextboxes();
+        pendingExportDataUrl = renderCompositeDataUrl();
+        savePreviewImg.src = pendingExportDataUrl;
         confirmModal.classList.add("show");
       });
 
@@ -976,9 +1033,7 @@
         confirmYesBtn.disabled = true;
         confirmYesBtn.textContent = "保存中...";
 
-        bakeTextboxesToCanvas();
-
-        const dataUrl = canvas.toDataURL("image/png");
+        const dataUrl = pendingExportDataUrl || renderCompositeDataUrl();
         const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxPG3gw_Nxaz-0sS0emq7OPzQ-JEnUQlmkQzHqC_SB4k8-ShmH-HDjqPPBuHjOXObdA/exec";
 
         try {
