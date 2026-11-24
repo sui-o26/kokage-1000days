@@ -575,6 +575,13 @@
         }
       }
 
+      // 描画中・ピンチ中にiPadOSなどでテキスト選択が発生したら即座に解除する
+      document.addEventListener("selectionchange", () => {
+        if (isDrawing || hasStartedStroke || isPinching) {
+          clearSelection();
+        }
+      });
+
       // 長押しによるブラウザのコンテキストメニューを抑止
       [canvasViewport, canvas, document.querySelector(".controls")].forEach((el) => {
         if (!el) return;
@@ -954,6 +961,9 @@
             }
             applyTransform();
           }
+        } else if (isDrawing || hasStartedStroke) {
+          e.preventDefault();
+          clearSelection();
         }
       }, { passive: false });
 
@@ -987,7 +997,6 @@
         clearSelection();
 
         deselectAllTextboxes();
-        canvas.setPointerCapture(e.pointerId);
 
         const pos = getCanvasPos(e.clientX, e.clientY);
         strokeStartPos = pos;
@@ -1021,14 +1030,10 @@
         ctx.stroke();
       });
 
-      function stopDrawing(e) {
+      function stopDrawing() {
         if (strokeStartTimer) {
           clearTimeout(strokeStartTimer);
           strokeStartTimer = null;
-        }
-
-        if (e && e.pointerId !== undefined && canvas.hasPointerCapture(e.pointerId)) {
-          canvas.releasePointerCapture(e.pointerId);
         }
 
         if (isDrawing && !hasStartedStroke && !isPinching && strokeStartPos) {
@@ -1040,10 +1045,11 @@
         strokeStartPos = null;
         document.body.classList.remove("is-drawing");
         ctx.closePath();
+        clearSelection();
       }
 
-      canvas.addEventListener("pointerup", stopDrawing);
-      canvas.addEventListener("pointercancel", stopDrawing);
+      window.addEventListener("pointerup", stopDrawing);
+      window.addEventListener("pointercancel", stopDrawing);
 
       undoBtn.addEventListener("click", () => {
         clearSelection();
