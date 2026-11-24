@@ -575,14 +575,12 @@
         }
       }
 
-      // 描画中・ピンチ中にiPadOSなどでテキスト選択が発生したら即座に解除する
       document.addEventListener("selectionchange", () => {
         if (isDrawing || hasStartedStroke || isPinching) {
           clearSelection();
         }
       });
 
-      // 長押しによるブラウザのコンテキストメニューを抑止
       [canvasViewport, canvas, document.querySelector(".controls")].forEach((el) => {
         if (!el) return;
         el.addEventListener("contextmenu", (e) => {
@@ -825,6 +823,25 @@
         }, 30);
       }
 
+      // 1行を指定幅（maxWidth）内に収まるよう自動折り返しするヘルパー
+      function wrapLineToWidth(targetCtx, line, maxWidth) {
+        if (!line) return [""];
+        const wrapped = [];
+        let current = "";
+
+        for (const ch of Array.from(line)) {
+          const candidate = current + ch;
+          if (current !== "" && targetCtx.measureText(candidate).width > maxWidth) {
+            wrapped.push(current);
+            current = ch;
+          } else {
+            current = candidate;
+          }
+        }
+        wrapped.push(current);
+        return wrapped;
+      }
+
       function renderCompositeDataUrl() {
         const exportCanvas = document.createElement("canvas");
         exportCanvas.width = canvas.width;
@@ -847,8 +864,8 @@
             const trimmed = rawText.replace(/\u3000/g, " ").trim();
             if (trimmed !== "" && trimmed !== "文字を入力") {
               const contentRect = content ? content.getBoundingClientRect() : box.getBoundingClientRect();
-              const x = ((contentRect.left - stageRect.left) / scale) * ratioX;
-              const y = ((contentRect.top - stageRect.top) / scale) * ratioY;
+              const x = Math.max(0, ((contentRect.left - stageRect.left) / scale) * ratioX);
+              const y = Math.max(0, ((contentRect.top - stageRect.top) / scale) * ratioY);
               const fontSizeCss = Number(box.dataset.fontSize) || 20;
               const fontSizeCanvas = fontSizeCss * ratioY;
 
@@ -857,9 +874,19 @@
               exportCtx.font = `700 ${fontSizeCanvas}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif`;
               exportCtx.textBaseline = "top";
 
-              const lines = rawText.split("\n");
+              // キャンバス右端（余白8px）までに使える最大幅を計算して自動改行
+              const rightMargin = 8 * ratioX;
+              const maxLineWidth = Math.max(fontSizeCanvas * 2, canvas.width - x - rightMargin);
+
+              const rawLines = rawText.split("\n");
+              const finalLines = [];
+              rawLines.forEach((rawLine) => {
+                const wrappedLines = wrapLineToWidth(exportCtx, rawLine, maxLineWidth);
+                finalLines.push(...wrappedLines);
+              });
+
               const lineHeight = fontSizeCanvas * 1.3;
-              lines.forEach((line, idx) => {
+              finalLines.forEach((line, idx) => {
                 exportCtx.fillText(line, x, y + idx * lineHeight);
               });
             }
@@ -919,7 +946,6 @@
         }
       }
 
-      // 2本指タッチ時は描画を即座にキャンセルしてズームを優先
       canvasViewport.addEventListener("touchstart", (e) => {
         if (e.touches.length >= 2) {
           e.preventDefault();
