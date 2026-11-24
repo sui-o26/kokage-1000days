@@ -874,11 +874,14 @@
               exportCtx.font = `700 ${fontSizeCanvas}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif`;
               exportCtx.textBaseline = "top";
 
-              // キャンバス右端（余白8px）までに使える最大幅を計算して自動改行
-              const rightMargin = 8 * ratioX;
-              const maxLineWidth = Math.max(fontSizeCanvas * 2, canvas.width - x - rightMargin);
+              // 画面上のテキストボックス幅（またはキャンバス右端までの残り幅のうち小さい方）で折り返し
+              const boxInnerWidthCanvas = contentRect.width > 0
+                ? (contentRect.width / scale) * ratioX
+                : ((box.clientWidth || 120) - 20) * ratioX;
+              const remainingCanvasWidth = Math.max(fontSizeCanvas * 2, canvas.width - x - 8 * ratioX);
+              const maxLineWidth = Math.max(fontSizeCanvas * 1.5, Math.min(boxInnerWidthCanvas, remainingCanvasWidth));
 
-              const rawLines = rawText.split("\n");
+              const rawLines = rawText.split(/\r?\n/);
               const finalLines = [];
               rawLines.forEach((rawLine) => {
                 const wrappedLines = wrapLineToWidth(exportCtx, rawLine, maxLineWidth);
