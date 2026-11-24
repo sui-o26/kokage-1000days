@@ -823,23 +823,63 @@
         }, 30);
       }
 
-      // 1行を指定幅（maxWidth）内に収まるよう自動折り返しするヘルパー
-      function wrapLineToWidth(targetCtx, line, maxWidth) {
-        if (!line) return [""];
-        const wrapped = [];
-        let current = "";
+      // 画面上の contentEditable 要素で実際に折り返された行ごとの文字列と座標を取得する
+      function extractVisualLines(contentEl, stageRect, currentScale, ratioX, ratioY) {
+        const resultLines = [];
+        const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT, null);
+        let textNode;
 
-        for (const ch of Array.from(line)) {
-          const candidate = current + ch;
-          if (current !== "" && targetCtx.measureText(candidate).width > maxWidth) {
-            wrapped.push(current);
-            current = ch;
-          } else {
-            current = candidate;
+        while ((textNode = walker.nextNode())) {
+          const text = textNode.nodeValue || "";
+          if (text.length === 0) continue;
+
+          let currentLineText = "";
+          let currentLineTop = null;
+          let currentLineLeft = null;
+
+          for (let i = 0; i < text.length; i++) {
+            const range = document.createRange();
+            range.setStart(textNode, i);
+            range.setEnd(textNode, i + 1);
+            const rects = range.getClientRects();
+            const rect = rects.length > 0 ? rects[0] : range.getBoundingClientRect();
+
+            if (!rect || (rect.width === 0 && rect.height === 0)) {
+              currentLineText += text[i];
+              continue;
+            }
+
+            const charTop = ((rect.top - stageRect.top) / currentScale) * ratioY;
+            const charLeft = ((rect.left - stageRect.left) / currentScale) * ratioX;
+
+            if (currentLineTop === null) {
+              currentLineTop = charTop;
+              currentLineLeft = charLeft;
+              currentLineText = text[i];
+            } else if (Math.abs(charTop - currentLineTop) > rect.height * 0.45) {
+              resultLines.push({
+                text: currentLineText,
+                x: currentLineLeft,
+                y: currentLineTop
+              });
+              currentLineTop = charTop;
+              currentLineLeft = charLeft;
+              currentLineText = text[i];
+            } else {
+              currentLineText += text[i];
+            }
+          }
+
+          if (currentLineText.length > 0) {
+            resultLines.push({
+              text: currentLineText,
+              x: currentLineLeft !== null ? currentLineLeft : 0,
+              y: currentLineTop !== null ? currentLineTop : 0
+            });
           }
         }
-        wrapped.push(current);
-        return wrapped;
+
+        return resultLines;
       }
 
       function renderCompositeDataUrl() {
@@ -862,10 +902,7 @@
             const content = box.querySelector(".placed-textbox-content");
             const rawText = content ? content.innerText : "";
             const trimmed = rawText.replace(/\u3000/g, " ").trim();
-            if (trimmed !== "" && trimmed !== "文字を入力") {
-              const contentRect = content ? content.getBoundingClientRect() : box.getBoundingClientRect();
-              const x = Math.max(0, ((contentRect.left - stageRect.left) / scale) * ratioX);
-              const y = Math.max(0, ((contentRect.top - stageRect.top) / scale) * ratioY);
+            if (trimmed !== "" && trimmed !== "文字を入力" && content) {
               const fontSizeCss = Number(box.dataset.fontSize) || 20;
               const fontSizeCanvas = fontSizeCss * ratioY;
 
@@ -874,24 +911,19 @@
               exportCtx.font = `700 ${fontSizeCanvas}px -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif`;
               exportCtx.textBaseline = "top";
 
-              // 画面上のテキストボックス幅（またはキャンバス右端までの残り幅のうち小さい方）で折り返し
-              const boxInnerWidthCanvas = contentRect.width > 0
-                ? (contentRect.width / scale) * ratioX
-                : ((box.clientWidth || 120) - 20) * ratioX;
-              const remainingCanvasWidth = Math.max(fontSizeCanvas * 2, canvas.width - x - 8 * ratioX);
-              const maxLineWidth = Math.max(fontSizeCanvas * 1.5, Math.min(boxInnerWidthCanvas, remainingCanvasWidth));
-
-              const rawLines = rawText.split(/\r?\n/);
-              const finalLines = [];
-              rawLines.forEach((rawLine) => {
-                const wrappedLines = wrapLineToWidth(exportCtx, rawLine, maxLineWidth);
-                finalLines.push(...wrappedLines);
-              });
-
-              const lineHeight = fontSizeCanvas * 1.3;
-              finalLines.forEach((line, idx) => {
-                exportCtx.fillText(line, x, y + idx * lineHeight);
-              });
+              const visualLines = extractVisualLines(content, stageRect, scale, ratioX, ratioY);
+              if (visualLines.length > 0) {
+                visualLines.forEach((lineObj) => {
+                  const clampedX = Math.max(0, Math.min(canvas.width - fontSizeCanvas, lineObj.x));
+                  const clampedY = Math.max(0, Math.min(canvas.height - fontSizeCanvas, lineObj.y));
+                  exportCtx.fillText(lineObj.text, clampedX, clampedY);
+                });
+              } else {
+                const contentRect = content.getBoundingClientRect();
+                const x = Math.max(0, ((contentRect.left - stageRect.left) / scale) * ratioX);
+                const y = Math.max(0, ((contentRect.top - stageRect.top) / scale) * ratioY);
+                exportCtx.fillText(rawText, x, y);
+              }
             }
           });
         }
